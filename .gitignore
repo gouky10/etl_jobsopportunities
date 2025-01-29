@@ -1,0 +1,5 @@
+# Excluir carpeta data
+data/
+
+# Excluir caché de Python en scraping
+scraping/__pycache__/
