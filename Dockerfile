@@ -10,6 +10,9 @@ COPY requirements.txt .
 # Instalar las dependencias
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Instalar Playwright y sus navegadores
+RUN python -m playwright install
+
 # Copiar el resto del código de la aplicación
 COPY . .
 

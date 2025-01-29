@@ -1,4 +1,10 @@
-plaintext
+playwright
 pandas
-requests
+python-dotenv
+psycopg2-binary
+sqlalchemy
+spacy
+langchain
+streamlit
 beautifulsoup4
+requests
