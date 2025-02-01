@@ -1,48 +1,100 @@
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from datetime import datetime, timedelta
 import re
+from transformación.transform import transform_data, save_to_json
 
-def scrape_job_details(url):
+async def process_job(job_data):
+    """Procesa un trabajo individual"""
+    try:
+        print("\n🚀 Iniciando el proceso de análisis del trabajo...")
+        
+        # Obtener detalles del trabajo
+        print("✨ Obteniendo detalles del trabajo...")
+        job_details = await scrape_job_details(job_data)
+        if not job_details:
+            print("❌ No se pudieron obtener los detalles del trabajo.")
+            return None
+        
+        print("📝 Detalles obtenidos con éxito.")
+        
+        # Transformar y analizar datos
+        print("🔍 Analizando la descripción del trabajo...")
+        transformed_data = transform_data(job_details, job_data['link'])
+        if not transformed_data.empty:
+            print("📊 Análisis completado con éxito.")
+        else:
+            print("⚠️  El análisis no generó datos.")
+        
+        # Guardar resultados
+        print("💾 Guardando los resultados...")
+        output_file = save_to_json(transformed_data)
+        print(f"✅ Datos guardados exitosamente en: {output_file}")
+        
+        return {
+            'details': job_details,
+            'transformed': transformed_data,
+            'output_file': output_file
+        }
+        
+    except Exception as e:
+        print(f"❌ Error durante el proceso: {str(e)}")
+        return None
+
+async def scrape_job_details(job_data):
     """Scrape detailed job information from LinkedIn job posting"""
     try:
-        with sync_playwright() as p:
-            browser = p.firefox.launch(headless=False)
-            page = browser.new_page()
-            page.goto(url)
+        print("\n🌐 Iniciando scraping de detalles del trabajo...")
+        
+        async with async_playwright() as p:
+            browser = await p.firefox.launch(headless=False)
+            page = await browser.new_page()
+            await page.goto(job_data['link'])
             
             # Esperar a que el contenedor principal esté cargado
-            page.wait_for_selector('section.top-card-layout')
+            await page.wait_for_selector('section.top-card-layout')
+            print("📄 Página cargada correctamente.")
             
             # Extraer detalles principales
+            print("🔍 Extrayendo información principal...")
+            title = await page.query_selector('h1.top-card-layout__title')
+            company = await page.query_selector('a.topcard__org-name-link')
+            location = await page.query_selector('span.topcard__flavor--bullet')
+            posted_date = await page.query_selector('span.posted-time-ago__text')
+            applicants = await page.query_selector('span.num-applicants__caption')
+            
             job_details = {
-                'title': page.query_selector('h1.top-card-layout__title').inner_text().strip(),
-                'company': page.query_selector('a.topcard__org-name-link').inner_text().strip(),
-                'location': page.query_selector('span.topcard__flavor--bullet').inner_text().strip(),
-                'posted_date': page.query_selector('span.posted-time-ago__text').inner_text().strip(),
-                'applicants': page.query_selector('span.num-applicants__caption').inner_text().strip(),
-                'url': url
+                **job_data,  # Incluir los datos básicos originales
+                'title': await title.inner_text() if title else None,
+                'company': await company.inner_text() if company else None,
+                'location': await location.inner_text() if location else None,
+                'posted_date': await posted_date.inner_text() if posted_date else None,
+                'applicants': await applicants.inner_text() if applicants else None,
+                'description': None
             }
             
             # Extraer ubicación, fecha y aplicantes
-            primary_desc = page.query_selector('div.job-details-jobs-unified-top-card__primary-description-container')
+            print("📍 Actualizando ubicación, fecha y aplicantes...")
+            primary_desc = await page.query_selector('div.job-details-jobs-unified-top-card__primary-description-container')
             if primary_desc:
-                elements = primary_desc.query_selector_all('span.tvm__text--low-emphasis')
+                elements = await primary_desc.query_selector_all('span.tvm__text--low-emphasis')
                 if len(elements) >= 3:
-                    job_details['location'] = elements[0].inner_text().strip()
-                    job_details['posted_date'] = elements[1].inner_text().strip()
-                    job_details['applicants'] = elements[2].inner_text().strip()
+                    job_details['location'] = await elements[0].inner_text()
+                    job_details['posted_date'] = await elements[1].inner_text()
+                    job_details['applicants'] = await elements[2].inner_text()
             
             # Extraer descripción del trabajo
-            page.wait_for_selector('section.description')
-            description = page.query_selector('section.description')
+            print("📄 Extrayendo descripción del puesto...")
+            await page.wait_for_selector('section.description')
+            description = await page.query_selector('section.description')
             if description:
-                job_details['description'] = description.inner_text().strip()
+                job_details['description'] = await description.inner_text()
             
-            browser.close()
+            print("✅ Detalles del trabajo extraídos con éxito.")
+            await browser.close()
             return job_details
             
     except Exception as e:
-        print(f"Error scraping job details: {str(e)}")
+        print(f"❌ Error scraping job details: {str(e)}")
         return None
 
 def parse_posted_date(text):

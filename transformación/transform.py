@@ -1,16 +1,50 @@
 from datetime import datetime
 import pandas as pd
 import os
-from langchain_community.chat_models import ChatOpenAI
+from openai import OpenAI
+from langchain_core.language_models import BaseLLM
+from langchain_core.outputs import LLMResult, Generation
+from config.api_keys import API_KEY
+
+class OpenRouteLLM(BaseLLM):
+    base_url: str = "https://openrouter.ai/api/v1"
+    model: str = "deepseek/deepseek-r1-distill-llama-70b"
+
+    @property
+    def _llm_type(self) -> str:
+        return "openroute"
+
+    def _call(self, prompt: str, **kwargs) -> str:
+        return self._generate([prompt], **kwargs).generations[0][0].text
+
+    def _generate(self, prompts: list[str], **kwargs) -> LLMResult:
+        client = OpenAI(
+            base_url=self.base_url,
+            api_key = API_KEY
+        )
+        
+        results = []
+        for prompt in prompts:
+            completion = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+            
+            text = completion.choices[0].message.content
+            results.append([Generation(text=text)])
+        
+        return LLMResult(generations=results)
+
 from langchain.prompts import ChatPromptTemplate
 
-def analyze_job_description(description, api_key):
+def analyze_job_description(description):
     """Analyze job description using DeepSeek API"""
-    chat = ChatOpenAI(
-        openai_api_key=api_key,
-        openai_api_base="https://api.deepseek.com/v1",
-        model="deepseek-chat"
-    )
+    chat = OpenRouteLLM()
     
     prompt_template = ChatPromptTemplate.from_template("""
     Analiza la siguiente descripción de trabajo y extrae la siguiente información:
@@ -44,11 +78,11 @@ def analyze_job_description(description, api_key):
     
     prompt = prompt_template.format_messages(description=description)
     response = chat.invoke(prompt)
-    return response.content
+    return response
 
-def transform_data(job_details, url, api_key):
+def transform_data(job_details, url):
     """Transform raw job details into structured DataFrame"""
-    analysis = analyze_job_description(job_details, api_key)
+    analysis = analyze_job_description(job_details)
     
     # Parse the analysis into a dictionary
     data = {}
@@ -61,8 +95,9 @@ def transform_data(job_details, url, api_key):
         if ':' in line:
             # Limpiar el nombre de la columna quitando prefijos no deseados
             key, value = line.split(':', 1)
-            key = key.strip().lstrip('- **').rstrip('**')
-            data[key] = value.strip()
+            key = key.strip().lstrip('- **').rstrip('*')
+            value = value.lstrip('*').strip()
+            data[key] = value
     
     # Crear DataFrame con columnas requeridas
     df = pd.DataFrame([data])
