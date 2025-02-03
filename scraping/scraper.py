@@ -20,7 +20,7 @@ async def process_job(job_data):
         # Transformar y analizar datos
         print("🔍 Analizando la descripción del trabajo...")
         transformed_data = transform_data(job_details, job_data['link'])
-        if not transformed_data.empty:
+        if transformed_data:
             print("📊 Análisis completado con éxito.")
         else:
             print("⚠️  El análisis no generó datos.")

@@ -92,11 +92,58 @@ async def main():
         file_choice = int(input("Seleccione una búsqueda: ")) - 1
         selected_file = os.path.join(search_dir, files[file_choice])
         
-        num_jobs = int(input("\n¿Cuántos trabajos desea procesar? "))
+        # Función para mostrar los registros con paginación
+        def mostrar_registros(registros, cantidad=10):
+            """Muestra los primeros N registros con paginación"""
+            total = len(registros)
+            pagina = 1
+            while True:
+                inicio = (pagina - 1) * cantidad
+                fin = inicio + cantidad
+                print(f"\nRegistros del {inicio + 1} al {min(fin, total)}:")
+                for i in range(inicio, fin):
+                    if i >= total:
+                        break
+                    registro = registros[i]
+                    print(f"{i + 1}. {registro['title']} - {registro['company']}")
+    
+                ver_mas = input("\n¿Desea ver más registros? (s/n): ")
+                if ver_mas.lower() != 's':
+                    break
+                pagina += 1
+                if inicio + cantidad >= total:
+                    print("\nNo hay más registros para mostrar.")
+                    break
+        
+        # Función para obtener el índice de inicio
+        def obtener_inicio(registros):
+            """Obtiene el índice de inicio para el procesamiento"""
+            while True:
+                try:
+                    inicio = int(input("\n¿A partir de qué registro desea comenzar el procesamiento? "))
+                    if 1 <= inicio <= len(registros):
+                        return inicio - 1  # Convertimos a índice cero
+                    else:
+                        print("Por favor ingrese un número válido entre 1 y", len(registros))
+                except ValueError:
+                    print("Por favor ingrese un número válido.")
+        
+        # Cargar y mostrar los registros
+        with open(selected_file, 'r', encoding='utf-8') as archivo:
+            registros = json.load(archivo)
+        
+        # Mostrar los registros con paginación
+        mostrar_registros(registros)
+        
+        # Obtener el índice de inicio
+        inicio_proceso = obtener_inicio(registros)
+        
+        # Definir el número total de trabajos a procesar
+        num_jobs = int(input("Cuantos registros se va a procesar: ")) 
         
         # Procesar la búsqueda seleccionada
         job_search = await JobSearch.create()
-        results = await job_search.process_historical_search(selected_file, num_jobs)
+        results = await job_search.process_historical_search(selected_file, num_jobs, start_index=inicio_proceso)
         
         if results:
             print("\nResultados procesados:")

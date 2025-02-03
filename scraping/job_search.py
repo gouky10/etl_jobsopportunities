@@ -43,19 +43,19 @@ class JobSearch:
         ]
         return random.choice(agents)
 
-    async def process_historical_search(self, file_path, num_jobs):
+    async def process_historical_search(self, file_path, num_jobs, start_index=0):
         """Process a historical job search from JSON file"""
         try:
             with open(file_path, 'r') as f:
                 jobs = json.load(f)
 
-            if num_jobs > len(jobs):
-                num_jobs = len(jobs)
+            if num_jobs > len(jobs) - start_index:
+                num_jobs = len(jobs) - start_index
 
             results = []
-            for i in range(num_jobs):
+            for i in range(start_index, num_jobs+start_index):
                 job = jobs[i]
-                print(f"\nProcesando trabajo {i+1}/{num_jobs}:")
+                print(f"\nProcesando trabajo {i+1} de {i-start_index}/{num_jobs}:")
                 print(f"Título: {job['title']}")
                 print(f"Empresa: {job['company']}")
                 print(f"Ubicación: {job['location']}")
