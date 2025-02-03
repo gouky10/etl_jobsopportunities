@@ -2,4 +2,6 @@
 data/
 
 # Excluir caché de Python en scraping
-scraping/__pycache__/
+*/__pycache__/*
+venv/
+config/api_keys.py
